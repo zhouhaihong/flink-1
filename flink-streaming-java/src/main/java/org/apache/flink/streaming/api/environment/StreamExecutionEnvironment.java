@@ -1567,6 +1567,16 @@ public class StreamExecutionEnvironment {
         return addSource(function, sourceName, typeInfo);
     }
 
+    /**
+     *
+     * @param inputFormat
+     * @param typeInfo
+     * @param sourceName
+     * @param monitoringMode
+     * @param interval
+     * @param <OUT>
+     * @return
+     */
     private <OUT> DataStreamSource<OUT> createFileInput(
             FileInputFormat<OUT> inputFormat,
             TypeInformation<OUT> typeInfo,

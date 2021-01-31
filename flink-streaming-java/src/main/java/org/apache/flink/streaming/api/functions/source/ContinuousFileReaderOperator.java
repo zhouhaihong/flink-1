@@ -66,6 +66,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * {@link ContinuousFileMonitoringFunction}. Contrary to the {@link
  * ContinuousFileMonitoringFunction} which has a parallelism of 1, this operator can have DOP > 1.
  *
+ * 它的实现使用MailboxExecutor来执行每个操作和状态机方法。
  * <p>This implementation uses {@link MailboxExecutor} to execute each action and state machine
  * approach. The workflow is the following:
  *
@@ -88,9 +89,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  *       processed in the same way as above
  * </ol>
  *
+ * 使用MailboxExecutor可以避免显式同步。在任何给定时间，最多只能有一封邮件排队。
  * <p>Using {@link MailboxExecutor} allows to avoid explicit synchronization. At most one mail
  * should be enqueued at any given time.
  *
+ * 使用FSM方法允许显式定义状态，并在它们之间执行ReaderState#VALID_TRANSFIONS转换。
  * <p>Using FSM approach allows to explicitly define states and enforce {@link
  * ReaderState#VALID_TRANSITIONS transitions} between them.
  */

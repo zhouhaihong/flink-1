@@ -52,10 +52,10 @@ import java.util.TreeMap;
  * for:
  *
  * <ol>
- *   <li>Monitoring a user-provided path.
- *   <li>Deciding which files should be further read and processed.
- *   <li>Creating the {@link FileInputSplit splits} corresponding to those files.
- *   <li>Assigning them to downstream tasks for further processing.
+ *   <li>Monitoring a user-provided path. 监控用户提供的路径
+ *   <li>Deciding which files should be further read and processed. 决定接下来读取和处理哪个文件
+ *   <li>Creating the {@link FileInputSplit splits} corresponding to those files.创建与这些文件对应的FileInputSplit。
+ *   <li>Assigning them to downstream tasks for further processing.将Split分配给下游，以便做进一步处理
  * </ol>
  *
  * <p>The splits to be read are forwarded to the downstream {@link ContinuousFileReaderOperator}
@@ -63,6 +63,7 @@ import java.util.TreeMap;
  *
  * <p><b>IMPORTANT NOTE: </b> Splits are forwarded downstream for reading in ascending modification
  * time order, based on the modification time of the files they belong to.
+ * 转发给下游的Split会按照该split所属的文件的修改时间，进行升序排序，依次下发给下游
  */
 @Internal
 public class ContinuousFileMonitoringFunction<OUT>
@@ -83,7 +84,7 @@ public class ContinuousFileMonitoringFunction<OUT>
     /** The path to monitor. */
     private final String path;
 
-    /** The parallelism of the downstream readers. */
+    /** The parallelism of the downstream readers. 这里的并行度指的是，下游读取问价的并行度 */
     private final int readerParallelism;
 
     /** The {@link FileInputFormat} to be read. */
@@ -256,7 +257,10 @@ public class ContinuousFileMonitoringFunction<OUT>
             FileSystem fs, SourceContext<TimestampedFileInputSplit> context) throws IOException {
         assert (Thread.holdsLock(checkpointLock));
 
+        // 获取需要处理的文件
         Map<Path, FileStatus> eligibleFiles = listEligibleFiles(fs, new Path(path));
+
+        // 获取目录下，当前所有未处理文件的分片。并按照时间进行了排除处理（利用TreeMap实现）
         Map<Long, List<TimestampedFileInputSplit>> splitsSortedByModTime =
                 getInputSplitsSortedByModTime(eligibleFiles);
 
@@ -265,14 +269,17 @@ public class ContinuousFileMonitoringFunction<OUT>
             long modificationTime = splits.getKey();
             for (TimestampedFileInputSplit split : splits.getValue()) {
                 LOG.info("Forwarding split: " + split);
+                // 将Split信息发送给下游算子进行读取数据处理
                 context.collect(split);
             }
-            // update the global modification time
+            // update the global modification time 更新全局修改时间
             globalModificationTime = Math.max(globalModificationTime, modificationTime);
         }
     }
 
     /**
+     * 创建要转发到ContinuousFileReaderOperator的下游任务的InputSplt。
+     * Split在转发之前按修改时间排序，并且只处理属于符合条件的文件列表中的文件Split。
      * Creates the input splits to be forwarded to the downstream tasks of the {@link
      * ContinuousFileReaderOperator}. Splits are sorted <b>by modification time</b> before being
      * forwarded and only splits belonging to files in the {@code eligibleFiles} list will be
@@ -336,10 +343,11 @@ public class ContinuousFileMonitoringFunction<OUT>
                 if (!status.isDir()) {
                     Path filePath = status.getPath();
                     long modificationTime = status.getModificationTime();
+                    // 判断文件是否是处理过的文件，如果处理过，则忽略
                     if (!shouldIgnore(filePath, modificationTime)) {
                         files.put(filePath, status);
                     }
-                } else if (format.getNestedFileEnumeration() && format.acceptFile(status)) {
+                } else if (format.getNestedFileEnumeration() && format.acceptFile(status)) { //判断目录是否允许递归遍历 & 该文件不是.和_开头
                     files.putAll(listEligibleFiles(fileSystem, status.getPath()));
                 }
             }
@@ -348,6 +356,8 @@ public class ContinuousFileMonitoringFunction<OUT>
     }
 
     /**
+     * 如果该文件不需要处理，则返回TRUE。
+     * 如果文件的修改时间小于globalModificationTime，则会出现这种情况。
      * Returns {@code true} if the file is NOT to be processed further. This happens if the
      * modification time of the file is smaller than the {@link #globalModificationTime}.
      *
