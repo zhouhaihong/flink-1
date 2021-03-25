@@ -570,6 +570,8 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
     }
 
     /**
+     * 计算输入文件的分片。默认情况下分片大小等于文件块大小。
+     * 如果请求的分片多于可用的块，则分片可能是块的一小部分，并且分片可能跨越多个块。
      * Computes the input splits for the file. By default, one file block is one split. If more
      * splits are requested than blocks are available, then a split may be a fraction of a block and
      * splits may cross block boundaries.
